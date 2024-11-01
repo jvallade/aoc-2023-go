@@ -16,17 +16,46 @@ func main() {
 	}
 	input := bufio.NewScanner(inputFile)
 
-	totalCount := CountArrangements(input)
+	unfold := false
+	if len(os.Args) > 1 {
+		part := os.Args[1]
+		if part == "part2" {
+			unfold = true
+		} else {
+			unfold = false
+		}
+	}
+
+	totalCount := CountArrangements(input, unfold)
 	fmt.Println("total possible arrangements :", totalCount)
 }
 
-func CountArrangements(input *bufio.Scanner) int {
+func Unfold(springs, groups string) (string, string) {
+	totSprings := springs
+	totGroups := groups
+	for range 4 {
+		totSprings += "?" + springs
+		totGroups += "," + groups
+	}
+	return totSprings, totGroups
+}
+
+func CountArrangements(input *bufio.Scanner, unfold bool) int {
 	totalCount := 0
 	for input.Scan() {
 		line := input.Text()
 		parts := strings.Fields(line)
-		springs := parts[0]
-		expectedGroups := strings.FieldsFunc(parts[1], func(r rune) bool {
+		var springs string
+		var groups string
+		if unfold {
+			springs, groups = Unfold(parts[0], parts[1])
+		} else {
+			springs = parts[0]
+			groups = parts[1]
+		}
+		fmt.Println(springs, groups)
+
+		expectedGroups := strings.FieldsFunc(groups, func(r rune) bool {
 			return r == ','
 		})
 

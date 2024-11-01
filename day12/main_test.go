@@ -13,12 +13,21 @@ const example = `???.### 1,1,3
 ????.######..#####. 1,6,5
 ?###???????? 3,2,1`
 
-const expectResult = 21
+const expectResultPart1 = 21
+const expectResultPart2 = 525152
 
-func TestCounter(t *testing.T) {
+func TestCounterPart1(t *testing.T) {
 	input := bufio.NewScanner(strings.NewReader(example))
-	totalCount := CountArrangements(input)
-	if totalCount != expectResult {
-		t.Errorf("got %d, expected %d", totalCount, expectResult)
+	totalCount := CountArrangements(input, false)
+	if totalCount != expectResultPart1 {
+		t.Errorf("got %d, expected %d", totalCount, expectResultPart1)
+	}
+}
+
+func TestCounterPart2(t *testing.T) {
+	input := bufio.NewScanner(strings.NewReader(example))
+	totalCount := CountArrangements(input, true)
+	if totalCount != expectResultPart2 {
+		t.Errorf("got %d, expected %d", totalCount, expectResultPart1)
 	}
 }
