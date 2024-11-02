@@ -9,6 +9,29 @@ import (
 	"strings"
 )
 
+type Group struct {
+	start      int
+	end        int
+	nextGroups []Group
+	valid      bool
+}
+
+// Define custom error types
+type GroupSizeMismatch struct{}
+type GroupNotFound struct{}
+type FoundUnexpectedGroup struct{}
+
+// Implement the Error method for each custom error type
+func (e GroupSizeMismatch) Error() string {
+	return "group size mismatch"
+}
+func (e GroupNotFound) Error() string {
+	return "group not found"
+}
+func (e FoundUnexpectedGroup) Error() string {
+	return "found unexpected group"
+}
+
 func main() {
 	inputFile, err := os.Open("day12/input.txt")
 	if err != nil {
@@ -40,6 +63,148 @@ func Unfold(springs, groups string) (string, string) {
 	return totSprings, totGroups
 }
 
+func FindNextPossibleGroup(springs string, groupSizes []int, offset int) ([]Group, error) {
+	inGroup := false
+	var start int
+
+	// fmt.Println("finding new group in", springs)
+	// fmt.Println("searching next group size", groupSizes)
+	// fmt.Println("offset", offset)
+
+	groups := make([]Group, 0)
+
+	for i, c := range springs {
+		switch c {
+		case '.':
+			// we found a complete group...
+			if inGroup {
+				// ... but we did not expect a new group (i.e groupSizes is empty)
+				if len(groupSizes) == 0 {
+					// we should not reach this point
+					log.Fatal("we should not reach this point - this should be handled at group start")
+				}
+
+				// now we need to check if the group we found has the expected size
+				if i-start == groupSizes[0] {
+					// we found a group with the expected size
+					group := Group{start + offset, i + offset, make([]Group, 0), true}
+
+					// now we need to find the next possible groups from this one
+					nextGroups, _ := FindNextPossibleGroup(springs[i+1:], groupSizes[1:], offset+i+1)
+					for _, g := range nextGroups {
+						if g.valid {
+							group.nextGroups = append(group.nextGroups, g)
+						}
+					}
+					groups = append(groups, group)
+					return groups, nil
+				} else {
+					// we found a group but it does not have the expected size
+					group := Group{valid: false}
+					groups = append(groups, group)
+					return groups, nil
+				}
+			}
+		case '#':
+			if len(groupSizes) == 0 {
+				// we found a group but we did not expect any group
+				group := Group{valid: false}
+				groups = append(groups, group)
+				return groups, nil
+			}
+
+			if !inGroup {
+				inGroup = true
+				start = i
+			}
+		case '?':
+			if inGroup {
+				if i-start > groupSizes[0] {
+					// we found a group but it is too big
+					group := Group{valid: false}
+					groups = append(groups, group)
+					return groups, nil
+
+				} else if i-start == groupSizes[0] {
+					group := Group{start + offset, i + offset, make([]Group, 0), true}
+
+					// now we need to find the next possible groups from this one
+					nextGroups, _ := FindNextPossibleGroup(springs[i+1:], groupSizes[1:], offset+i+1)
+					for _, g := range nextGroups {
+						if g.valid {
+							group.nextGroups = append(group.nextGroups, g)
+						}
+					}
+					groups = append(groups, group)
+					return groups, nil
+				}
+			} else {
+				if len(groupSizes) == 0 {
+					// we do not expect any group - we can skip this character
+					continue
+				}
+
+				// we start by skipping this character (i.e. we search a group starting at the next character)
+				nextGroups, _ := FindNextPossibleGroup(springs[i+1:], groupSizes, offset+i+1)
+				for _, g := range nextGroups {
+					if g.valid {
+						groups = append(groups, g)
+					}
+				}
+
+				// then we start a new group
+				start = i
+				inGroup = true
+			}
+		}
+	}
+
+	if inGroup {
+		if len(springs)-start == groupSizes[0] {
+			group := Group{start + offset, len(springs) + offset, make([]Group, 0), true}
+			if len(groupSizes) == 1 {
+				// we found all the groups we were looking for
+				groups = append(groups, group)
+				return groups, nil
+			} else {
+				// we found a group but we did not find all the groups we were looking for
+				group.valid = false
+				groups = append(groups, group)
+				return groups, nil
+			}
+		} else {
+			group := Group{valid: false}
+			groups = append(groups, group)
+			return groups, nil
+		}
+	}
+
+	if len(groupSizes) == 0 {
+		// we did not find any group but we did not expect any group
+		return groups, nil
+	} else {
+		// we did not find any group but we did expect a group
+		group := Group{valid: false}
+		groups = append(groups, group)
+		return groups, nil
+	}
+}
+
+func FlattenGroup(group Group) [][]Group {
+	if len(group.nextGroups) == 0 {
+		return [][]Group{{group}}
+	}
+
+	groups := make([][]Group, 0)
+	for _, g := range group.nextGroups {
+		flattenedGroups := FlattenGroup(g)
+		for _, fg := range flattenedGroups {
+			groups = append(groups, append([]Group{group}, fg...))
+		}
+	}
+	return groups
+}
+
 func CountArrangements(input *bufio.Scanner, unfold bool) int {
 	totalCount := 0
 	for input.Scan() {
@@ -58,60 +223,32 @@ func CountArrangements(input *bufio.Scanner, unfold bool) int {
 		expectedGroups := strings.FieldsFunc(groups, func(r rune) bool {
 			return r == ','
 		})
+		// Convert the slice of strings to a slice of integers
+		groupSizes := make([]int, len(expectedGroups))
+		for i, groupSize := range expectedGroups {
+			size, err := strconv.Atoi(groupSize)
+			if err != nil {
+				log.Fatal(err)
+			}
+			groupSizes[i] = size
+		}
 
-		possibleRawArrangements := []string{""}
-		for _, c := range springs {
-			switch {
-			case c == '.' || c == '#':
-				for i := range possibleRawArrangements {
-					possibleRawArrangements[i] += string(c)
-				}
-			case c == '?':
-				for i, rawArrangement := range possibleRawArrangements {
-					possibleRawArrangements[i] = rawArrangement + "."
-					possibleRawArrangements = append(possibleRawArrangements, rawArrangement+"#")
+		foundGroups, err := FindNextPossibleGroup(springs, groupSizes, 0)
+		if err != nil {
+			fmt.Println(foundGroups, err)
+			continue
+		}
+
+		count := 0
+		for _, g := range foundGroups {
+			fgs := FlattenGroup(g)
+			for _, fg := range fgs {
+				if len(fg) == len(expectedGroups) {
+					count++
 				}
 			}
 		}
-
-		for _, rawArrangement := range possibleRawArrangements {
-			groups := make([]int, 0)
-			inGroup := false
-			var start int
-			for i, c := range rawArrangement {
-				if c == '.' {
-					if inGroup {
-						groups = append(groups, i-start)
-						inGroup = false
-					}
-				} else {
-					if !inGroup {
-						start = i
-						inGroup = true
-					}
-				}
-			}
-			if inGroup {
-				groups = append(groups, len(rawArrangement)-start)
-			}
-			if len(groups) != len(expectedGroups) {
-				continue
-			}
-			mismatch := false
-			for i, group := range groups {
-				expectedGroup, err := strconv.Atoi(expectedGroups[i])
-				if err != nil {
-					log.Fatal(err)
-				}
-				if group != expectedGroup {
-					mismatch = true
-					continue
-				}
-			}
-			if !mismatch {
-				totalCount++
-			}
-		}
+		totalCount += count
 	}
 	return totalCount
 }
