@@ -227,13 +227,6 @@ func (m *Matrix) tiltWest() {
 	}
 }
 
-func (m *Matrix) print() {
-	for _, row := range *m {
-		fmt.Println(string(row))
-	}
-	fmt.Println()
-}
-
 func (m Matrix) count() int {
 	res := 0
 	for i, row := range m {
