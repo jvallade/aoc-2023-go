@@ -9,7 +9,7 @@ import (
 const example string = `rn=1,cm-,qp=3,cm=2,qp-,pc=4,ot=9,ab=5,pc-,pc=6,ot=7`
 
 const expectedResultPart1 int = 1320
-const expectedResultPart2 int = 0
+const expectedResultPart2 int = 145
 
 func TestHash(t *testing.T) {
 	input := "HASH"
