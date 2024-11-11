@@ -18,7 +18,7 @@ const example string = `.|...\....
 ..//.|....`
 
 const expectedResultPart1 int = 46
-const expectedResultPart2 int = 0
+const expectedResultPart2 int = 51
 
 func TestPart1(t *testing.T) {
 	input := strings.NewReader(example)
